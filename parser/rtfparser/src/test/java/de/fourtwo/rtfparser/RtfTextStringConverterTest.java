@@ -64,4 +64,18 @@ public class RtfTextStringConverterTest {
         assertTrue(rtf, sb.toString().contains("Headline 5"));
         assertTrue(rtf, sb.toString().contains("Headline 6"));
     }
+
+    /**
+     * test for a rtf file with all german Umlaut.
+     */
+    @Test
+    public void testConvertAllUmlaut() throws Exception {
+        String rtf = "/rtf/AllUmlaut.rtf";
+        InputStream is = getClass().getResourceAsStream(rtf);
+        assertNotNull(rtf ,is);
+
+        StringBuilder sb = new StringBuilder();
+        converter.convert(new RtfStreamSource(is), sb);
+        assertEquals(rtf, "äÄ\nöÖ\nüÜ\n", sb.toString());
+    }
 }
