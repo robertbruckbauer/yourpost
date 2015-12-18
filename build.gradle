@@ -18,3 +18,8 @@ subprojects {
 
     version = "1.0"
 }
+
+task testReport(type: TestReport) {
+    destinationDir = file("$buildDir/reports/allTests")
+    reportOn subprojects*.test
+}

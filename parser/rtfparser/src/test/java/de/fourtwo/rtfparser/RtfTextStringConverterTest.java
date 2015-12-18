@@ -76,6 +76,6 @@ public class RtfTextStringConverterTest {
 
         StringBuilder sb = new StringBuilder();
         converter.convert(new RtfStreamSource(is), sb);
-        assertEquals(rtf, "äÄ\nöÖ\nüÜ\n", sb.toString());
+        assertEquals(rtf, "\u00e4\u00c4\n\u00f6\u00d6\n\u00fc\u00dc\n", sb.toString());
     }
 }
