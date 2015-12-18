@@ -46,4 +46,22 @@ public class RtfTextStringConverterTest {
         assertEquals(rtf, "Hello Word!\n", sb.toString());
     }
 
+    /**
+     * test for a rtf file with headlines 1 to 6.
+     */
+    @Test
+    public void testConvertAllHeadline() throws Exception {
+        String rtf = "/rtf/AllHeadline.rtf";
+        InputStream is = getClass().getResourceAsStream(rtf);
+        assertNotNull(rtf, is);
+
+        StringBuilder sb = new StringBuilder();
+        converter.convert(new RtfStreamSource(is), sb);
+        assertTrue(rtf, sb.toString().contains("Headline 1"));
+        assertTrue(rtf, sb.toString().contains("Headline 2"));
+        assertTrue(rtf, sb.toString().contains("Headline 3"));
+        assertTrue(rtf, sb.toString().contains("Headline 4"));
+        assertTrue(rtf, sb.toString().contains("Headline 5"));
+        assertTrue(rtf, sb.toString().contains("Headline 6"));
+    }
 }
