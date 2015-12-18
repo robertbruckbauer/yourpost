@@ -16,6 +16,9 @@
 
 package de.fourtwo.rtfparser.impl.standard;
 
+import de.fourtwo.rtfparser.*;
+import de.fourtwo.rtfparser.impl.raw.RawRtfParser;
+
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayDeque;
@@ -23,407 +26,344 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
 
-import de.fourtwo.rtfparser.*;
-import de.fourtwo.rtfparser.RtfListener;
-import de.fourtwo.rtfparser.impl.raw.RawRtfParser;
-
 /**
  * This class builds on the RawRtfParser to provide a parser which can
  * deal with character encodings and Unicode. All of the character data it reads
  * is presented back to the client as Unicode strings to make it as simple as
  * possible to deal with.
  */
-public class StandardRtfParser implements RtfParser, RtfListener
-{
-   /**
-    * Main entry point: parse RTF data from the input stream, and pass events based on
-    * the RTF content to the listener.
-    */
-   @Override
-   public void parse(RtfSource source, RtfListener listener) throws IOException
-   {
-      handler = new StandardEventHandler(listener);
-      RtfParser reader = new RawRtfParser();
-      reader.parse(source, this);
-   }
+public class StandardRtfParser implements RtfParser, RtfListener {
 
-   /**
-    * Handle event from the RawRtfParser.
-    */
-   @Override
-   public void processGroupStart()
-   {
-      handleEvent(GROUP_START);
-      stack.push(state);
-      state = new ParserState(state);
-   }
+    private ParserEventHandler handler;
+    private final Deque<ParserEventHandler> handlerStack = new ArrayDeque<ParserEventHandler>();
 
-   /**
-    * Handle event from the RawRtfParser.
-    */
-   @Override
-   public void processGroupEnd()
-   {
-      handleEvent(GROUP_END);
-      state = stack.pop();
-   }
+    private ParserState state = new ParserState();
+    private final Deque<ParserState> stack = new ArrayDeque<ParserState>();
+    private int skipBytes;
+    private Map<Integer, String> fontEncodings = new HashMap<Integer, String>();
 
-   /**
-    * Handle event from the RawRtfParser.
-    */
-   @Override
-   public void processCharacterBytes(byte[] data)
-   {
-      try
-      {
-         if (data.length != 0)
-         {
-            if (skipBytes < data.length)
-            {
-               handleEvent(new StringEvent(new String(data, skipBytes, data.length - skipBytes, currentEncoding())));
+    private static final ParserEvent DOCUMENT_START = new DocumentStartEvent();
+    private static final ParserEvent DOCUMENT_END = new DocumentEndEvent();
+    private static final ParserEvent GROUP_START = new GroupStartEvent();
+    private static final ParserEvent GROUP_END = new GroupEndEvent();
+
+    /**
+     * Main entry point: parse RTF data from the input stream, and pass events based on
+     * the RTF content to the listener.
+     */
+    @Override
+    public void parse(RtfSource source, RtfListener listener) throws IOException {
+        handler = new StandardEventHandler(listener);
+        RtfParser reader = new RawRtfParser();
+        reader.parse(source, this);
+    }
+
+    /**
+     * Handle event from the RawRtfParser.
+     */
+    @Override
+    public void processGroupStart() {
+        handleEvent(GROUP_START);
+        stack.push(state);
+        state = new ParserState(state);
+    }
+
+    /**
+     * Handle event from the RawRtfParser.
+     */
+    @Override
+    public void processGroupEnd() {
+        handleEvent(GROUP_END);
+        state = stack.pop();
+    }
+
+    /**
+     * Handle event from the RawRtfParser.
+     */
+    @Override
+    public void processCharacterBytes(byte[] data) {
+        try {
+            if (data.length != 0) {
+                if (skipBytes < data.length) {
+                    handleEvent(new StringEvent(new String(data, skipBytes, data.length - skipBytes, currentEncoding())));
+                }
+                skipBytes = 0;
             }
-            skipBytes = 0;
-         }
-      }
+        } catch (UnsupportedEncodingException ex) {
+            throw new RuntimeException(ex);
+        }
+    }
 
-      catch (UnsupportedEncodingException ex)
-      {
-         throw new RuntimeException(ex);
-      }
-   }
+    /**
+     * Determine which encoding to use, one defined by the current font, or the current default encoding.
+     */
+    private String currentEncoding() {
+        return state.currentFontEncoding == null ? state.currentEncoding : state.currentFontEncoding;
+    }
 
-   /**
-    * Determine which encoding to use, one defined by the current font, or the current default encoding.
-    */
-   private String currentEncoding()
-   {
-      return state.currentFontEncoding == null ? state.currentEncoding : state.currentFontEncoding;
-   }
+    /**
+     * Handle event from the RawRtfParser.
+     */
+    @Override
+    public void processDocumentStart() {
+        handleEvent(DOCUMENT_START);
+    }
 
-   /**
-    * Handle event from the RawRtfParser.
-    */
-   @Override
-   public void processDocumentStart()
-   {
-      handleEvent(DOCUMENT_START);
-   }
+    /**
+     * Handle event from the RawRtfParser.
+     */
+    @Override
+    public void processDocumentEnd() {
+        handleEvent(DOCUMENT_END);
+    }
 
-   /**
-    * Handle event from the RawRtfParser.
-    */
-   @Override
-   public void processDocumentEnd()
-   {
-      handleEvent(DOCUMENT_END);
-   }
+    /**
+     * Handle event from the RawRtfParser.
+     */
+    @Override
+    public void processBinaryBytes(byte[] data) {
+        handleEvent(new BinaryBytesEvent(data));
+    }
 
-   /**
-    * Handle event from the RawRtfParser.
-    */
-   @Override
-   public void processBinaryBytes(byte[] data)
-   {
-      handleEvent(new BinaryBytesEvent(data));
-   }
+    /**
+     * Handle event from the RawRtfParser.
+     */
+    @Override
+    public void processString(String string) {
+        handleEvent(new StringEvent(string));
+    }
 
-   /**
-    * Handle event from the RawRtfParser.
-    */
-   @Override
-   public void processString(String string)
-   {
-      handleEvent(new StringEvent(string));
-   }
+    /**
+     * Handle event from the RawRtfParser.
+     */
+    @Override
+    public void processCommand(RtfCommand command, int parameter, boolean hasParameter, boolean optional) {
+        if (command.getCommandType() == RtfCommandType.Encoding) {
+            processEncoding(command, hasParameter, parameter);
+        } else {
+            boolean optionalFlag = false;
 
-   /**
-    * Handle event from the RawRtfParser.
-    */
-   @Override
-   public void processCommand(RtfCommand command, int parameter, boolean hasParameter, boolean optional)
-   {
-      if (command.getCommandType() == RtfCommandType.Encoding)
-      {
-         processEncoding(command, hasParameter, parameter);
-      }
-      else
-      {
-         boolean optionalFlag = false;
-
-         ParserEvent lastEvent = handler.getLastEvent();
-         if (lastEvent.getType() == ParserEventType.COMMAND_EVENT)
-         {
-            if (((CommandEvent) lastEvent).getCommand() == RtfCommand.optionalcommand)
-            {
-               handler.removeLastEvent();
-               optionalFlag = true;
-            }
-         }
-
-         switch (command)
-         {
-            case u:
-            {
-               processUnicode(parameter);
-               break;
+            ParserEvent lastEvent = handler.getLastEvent();
+            if (lastEvent.getType() == ParserEventType.COMMAND_EVENT) {
+                if (((CommandEvent) lastEvent).getCommand() == RtfCommand.optionalcommand) {
+                    handler.removeLastEvent();
+                    optionalFlag = true;
+                }
             }
 
-            case uc:
-            {
-               processUnicodeAlternateSkipCount(parameter);
-               break;
+            switch (command) {
+                case u: {
+                    processUnicode(parameter);
+                    break;
+                }
+
+                case uc: {
+                    processUnicodeAlternateSkipCount(parameter);
+                    break;
+                }
+
+                case upr: {
+                    processUpr(new CommandEvent(command, parameter, hasParameter, optionalFlag));
+                    break;
+                }
+
+                case emdash: {
+                    processCharacter('\u2014');
+                    break;
+                }
+
+                case endash: {
+                    processCharacter('\u2013');
+                    break;
+                }
+
+                case emspace: {
+                    processCharacter('\u2003');
+                    break;
+                }
+
+                case enspace: {
+                    processCharacter('\u2002');
+                    break;
+                }
+
+                case qmspace: {
+                    processCharacter('\u2005');
+                    break;
+                }
+
+                case bullet: {
+                    processCharacter('\u2022');
+                    break;
+                }
+
+                case lquote: {
+                    processCharacter('\u2018');
+                    break;
+                }
+
+                case rquote: {
+                    processCharacter('\u2019');
+                    break;
+                }
+
+                case ldblquote: {
+                    processCharacter('\u201c');
+                    break;
+                }
+
+                case rdblquote: {
+                    processCharacter('\u201d');
+                    break;
+                }
+
+                case backslash: {
+                    processCharacter('\\');
+                    break;
+                }
+
+                case opencurly: {
+                    processCharacter('{');
+                    break;
+                }
+
+                case closecurly: {
+                    processCharacter('}');
+                    break;
+                }
+
+                case f: {
+                    processFont(parameter);
+                    handleCommand(command, parameter, hasParameter, optionalFlag);
+                    break;
+                }
+
+                case fcharset: {
+                    processFontCharset(parameter);
+                    handleCommand(command, parameter, hasParameter, optionalFlag);
+                    break;
+                }
+
+                default: {
+                    handleCommand(command, parameter, hasParameter, optionalFlag);
+                    break;
+                }
+            }
+        }
+    }
+
+    /**
+     * Set the current font and current font encoding in the state.
+     */
+    private void processFont(int parameter) {
+        state.currentFont = parameter;
+        state.currentFontEncoding = fontEncodings.get(Integer.valueOf(parameter));
+    }
+
+    /**
+     * Set the charset for the current font.
+     */
+    private void processFontCharset(int parameter) {
+        String charset = FontCharset.getCharset(parameter);
+        if (charset != null) {
+            fontEncodings.put(Integer.valueOf(state.currentFont), Encoding.LOCALEID_MAPPING.get(charset));
+        }
+    }
+
+    /**
+     * Switch the encoding based on the RTF command received.
+     */
+    private void processEncoding(RtfCommand command, boolean hasParameter, int parameter) {
+        String encoding = null;
+        switch (command) {
+            case ansi: {
+                encoding = Encoding.ANSI_ENCODING;
+                break;
             }
 
-            case upr:
-            {
-               processUpr(new CommandEvent(command, parameter, hasParameter, optionalFlag));
-               break;
+            case pc: {
+                encoding = Encoding.PC_ENCODING;
+                break;
             }
 
-            case emdash:
-            {
-               processCharacter('\u2014');
-               break;
+            case pca: {
+                encoding = Encoding.PCA_ENCODING;
+                break;
             }
 
-            case endash:
-            {
-               processCharacter('\u2013');
-               break;
+            case ansicpg: {
+                encoding = hasParameter ? Encoding.LOCALEID_MAPPING.get(Integer.toString(parameter)) : null;
+                break;
             }
 
-            case emspace:
-            {
-               processCharacter('\u2003');
-               break;
+            default: {
+                encoding = null;
+                break;
             }
+        }
 
-            case enspace:
-            {
-               processCharacter('\u2002');
-               break;
-            }
+        if (encoding == null) {
+            throw new IllegalArgumentException("Unsupported encoding command " + command.getCommandName() + (hasParameter ? parameter : ""));
+        }
 
-            case qmspace:
-            {
-               processCharacter('\u2005');
-               break;
-            }
+        state.currentEncoding = encoding;
+    }
 
-            case bullet:
-            {
-               processCharacter('\u2022');
-               break;
-            }
+    /**
+     * Process an RTF command parameter representing a Unicode character.
+     */
+    private void processUnicode(int parameter) {
+        if (parameter < 0) {
+            parameter += 65536;
+        }
 
-            case lquote:
-            {
-               processCharacter('\u2018');
-               break;
-            }
+        processCharacter((char) parameter);
+        skipBytes = state.unicodeAlternateSkipCount;
+    }
 
-            case rquote:
-            {
-               processCharacter('\u2019');
-               break;
-            }
+    /**
+     * Set the number of bytes to skip after a Unicode character.
+     */
+    private void processUnicodeAlternateSkipCount(int parameter) {
+        state.unicodeAlternateSkipCount = parameter;
+    }
 
-            case ldblquote:
-            {
-               processCharacter('\u201c');
-               break;
-            }
+    /**
+     * Process a upr command: consume all of the RTF commands relating to this
+     * and emit events representing the Unicode content.
+     *
+     * @param command
+     */
+    private void processUpr(ParserEvent command) {
+        ParserEventHandler uprHandler = new UprHandler(handler);
+        uprHandler.handleEvent(command);
 
-            case rdblquote:
-            {
-               processCharacter('\u201d');
-               break;
-            }
+        handlerStack.push(handler);
+        handler = uprHandler;
+    }
 
-            case backslash:
-            {
-               processCharacter('\\');
-               break;
-            }
+    /**
+     * Process a single character.
+     */
+    private void processCharacter(char c) {
+        handleEvent(new StringEvent(Character.toString(c)));
+    }
 
-            case opencurly:
-            {
-               processCharacter('{');
-               break;
-            }
+    /**
+     * Process an RTF command.
+     */
+    private void handleCommand(RtfCommand command, int parameter, boolean hasParameter, boolean optional) {
+        handleEvent(new CommandEvent(command, parameter, hasParameter, optional));
+    }
 
-            case closecurly:
-            {
-               processCharacter('}');
-               break;
-            }
-
-            case f:
-            {
-               processFont(parameter);
-               handleCommand(command, parameter, hasParameter, optionalFlag);
-               break;
-            }
-
-            case fcharset:
-            {
-               processFontCharset(parameter);
-               handleCommand(command, parameter, hasParameter, optionalFlag);
-               break;
-            }
-
-            default:
-            {
-               handleCommand(command, parameter, hasParameter, optionalFlag);
-               break;
-            }
-         }
-      }
-   }
-
-   /**
-    * Set the current font and current font encoding in the state.
-    */
-   private void processFont(int parameter)
-   {
-      state.currentFont = parameter;
-      state.currentFontEncoding = m_fontEncodings.get(Integer.valueOf(parameter));
-   }
-
-   /**
-    * Set the charset for the current font.
-    */
-   private void processFontCharset(int parameter)
-   {
-      String charset = FontCharset.getCharset(parameter);
-      if (charset != null)
-      {
-         m_fontEncodings.put(Integer.valueOf(state.currentFont), Encoding.LOCALEID_MAPPING.get(charset));
-      }
-   }
-
-   /**
-    * Switch the encoding based on the RTF command received.
-    */
-   private void processEncoding(RtfCommand command, boolean hasParameter, int parameter)
-   {
-      String encoding = null;
-      switch (command)
-      {
-         case ansi:
-         {
-            encoding = Encoding.ANSI_ENCODING;
-            break;
-         }
-
-         case pc:
-         {
-            encoding = Encoding.PC_ENCODING;
-            break;
-         }
-
-         case pca:
-         {
-            encoding = Encoding.PCA_ENCODING;
-            break;
-         }
-
-         case ansicpg:
-         {
-            encoding = hasParameter ? Encoding.LOCALEID_MAPPING.get(Integer.toString(parameter)) : null;
-            break;
-         }
-
-         default:
-         {
-            encoding = null;
-            break;
-         }
-      }
-
-      if (encoding == null)
-      {
-         throw new IllegalArgumentException("Unsupported encoding command " + command.getCommandName() + (hasParameter ? parameter : ""));
-      }
-
-      state.currentEncoding = encoding;
-   }
-
-   /**
-    * Process an RTF command parameter representing a Unicode character.
-    */
-   private void processUnicode(int parameter)
-   {
-      if (parameter < 0)
-      {
-         parameter += 65536;
-      }
-
-      processCharacter((char) parameter);
-      skipBytes = state.unicodeAlternateSkipCount;
-   }
-
-   /**
-    * Set the number of bytes to skip after a Unicode character.
-    */
-   private void processUnicodeAlternateSkipCount(int parameter)
-   {
-      state.unicodeAlternateSkipCount = parameter;
-   }
-
-   /**
-    * Process a upr command: consume all of the RTF commands relating to this
-    * and emit events representing the Unicode content.
-    * @param command
-    */
-   private void processUpr(ParserEvent command)
-   {
-      ParserEventHandler uprHandler = new UprHandler(handler);
-      uprHandler.handleEvent(command);
-
-      handlerStack.push(handler);
-      handler = uprHandler;
-   }
-
-   /**
-    * Process a single character.
-    */
-   private void processCharacter(char c)
-   {
-      handleEvent(new StringEvent(Character.toString(c)));
-   }
-
-   /**
-    * Process an RTF command.
-    */
-   private void handleCommand(RtfCommand command, int parameter, boolean hasParameter, boolean optional)
-   {
-      handleEvent(new CommandEvent(command, parameter, hasParameter, optional));
-   }
-
-   /**
-    * Pass an event to the event handler, pop the event handler stack if the current
-    * event handler has consumed all of the events it can.
-    */
-   private void handleEvent(ParserEvent event)
-   {
-      handler.handleEvent(event);
-      if (handler.isComplete())
-      {
-         handler = handlerStack.pop();
-      }
-   }
-
-   private ParserEventHandler handler;
-   private final Deque<ParserEventHandler> handlerStack = new ArrayDeque<ParserEventHandler>();
-
-   private ParserState state = new ParserState();
-   private final Deque<ParserState> stack = new ArrayDeque<ParserState>();
-   private int skipBytes;
-   private Map<Integer, String> m_fontEncodings = new HashMap<Integer, String>();
-
-   private static final ParserEvent DOCUMENT_START = new DocumentStartEvent();
-   private static final ParserEvent DOCUMENT_END = new DocumentEndEvent();
-   private static final ParserEvent GROUP_START = new GroupStartEvent();
-   private static final ParserEvent GROUP_END = new GroupEndEvent();
+    /**
+     * Pass an event to the event handler, pop the event handler stack if the current
+     * event handler has consumed all of the events it can.
+     */
+    private void handleEvent(ParserEvent event) {
+        handler.handleEvent(event);
+        if (handler.isComplete()) {
+            handler = handlerStack.pop();
+        }
+    }
 }

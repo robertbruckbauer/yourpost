@@ -1,14 +1,14 @@
 package de.fourtwo.rtfparser;
 
-import java.io.IOException;
+import dagger.Module;
 
-import de.fourtwo.rtfparser.RtfSource;
-import de.fourtwo.rtfparser.RtfTextListener;
+import java.io.IOException;
 
 /**
  * This class implements a trivial RTF to text converter.
  * The extracted text is written to the StringBuilder as it is extracted.
  */
+@Module
 public class RtfTextStringConverter extends RtfTextListener {
     private StringBuilder buffer;
 
