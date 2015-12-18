@@ -1,1 +1,1 @@
-include "parser:rtfparser"
+include "parser:rtfparser", "writer:wordpresswriter"
