@@ -18,7 +18,7 @@ public abstract class RtfTextListener implements RtfListener {
     private RtfCommand currentDestination = RtfCommand.rtf;
     private final Deque<RtfCommand> destinationStack = new ArrayDeque<RtfCommand>();
 
-    public void convert(RtfSource source) throws IOException {
+    public void parse(RtfSource source) throws IOException {
         currentDestination = RtfCommand.rtf;
         final RtfParser parser = new StandardRtfParser();
         parser.parse(source, this);

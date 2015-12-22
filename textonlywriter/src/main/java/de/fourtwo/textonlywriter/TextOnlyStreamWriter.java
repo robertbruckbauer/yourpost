@@ -16,10 +16,10 @@ public class TextOnlyStreamWriter extends RtfTextListener {
     private Charset charset;
     private OutputStream os;
 
-    public void convert(RtfSource source, OutputStream os, String outputCharsetName) throws IOException {
+    public void write(RtfSource source, OutputStream os, String outputCharsetName) throws IOException {
         this.os = os;
         this.charset = Charset.forName(outputCharsetName);
-        super.convert(source);
+        super.parse(source);
     }
 
     protected void processExtractedText(String text) {

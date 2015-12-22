@@ -27,7 +27,7 @@ public class TextOnlyStringWriterTest {
         assertNotNull(rtf ,is);
 
         StringBuilder sb = new StringBuilder();
-        writer.convert(new RtfStreamSource(is), sb);
+        writer.write(new RtfStreamSource(is), sb);
         assertEquals(rtf, "Hello Docs!\n", sb.toString());
     }
 
@@ -41,7 +41,7 @@ public class TextOnlyStringWriterTest {
         assertNotNull(rtf ,is);
 
         StringBuilder sb = new StringBuilder();
-        writer.convert(new RtfStreamSource(is), sb);
+        writer.write(new RtfStreamSource(is), sb);
         assertEquals(rtf, "Hello Word!\n", sb.toString());
     }
 
@@ -55,7 +55,7 @@ public class TextOnlyStringWriterTest {
         assertNotNull(rtf, is);
 
         StringBuilder sb = new StringBuilder();
-        writer.convert(new RtfStreamSource(is), sb);
+        writer.write(new RtfStreamSource(is), sb);
         assertTrue(rtf, sb.toString().contains("Headline 1"));
         assertTrue(rtf, sb.toString().contains("Headline 2"));
         assertTrue(rtf, sb.toString().contains("Headline 3"));
@@ -74,7 +74,7 @@ public class TextOnlyStringWriterTest {
         assertNotNull(rtf ,is);
 
         StringBuilder sb = new StringBuilder();
-        writer.convert(new RtfStreamSource(is), sb);
+        writer.write(new RtfStreamSource(is), sb);
         assertEquals(rtf, "\u00e4\u00c4\n\u00f6\u00d6\n\u00fc\u00dc\n", sb.toString());
     }
 }

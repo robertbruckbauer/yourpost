@@ -13,9 +13,9 @@ import java.io.IOException;
 public class TextOnlyStringWriter extends RtfTextListener {
     private StringBuilder buffer;
 
-    public void convert(RtfSource source, StringBuilder buffer) throws IOException {
+    public void write(RtfSource source, StringBuilder buffer) throws IOException {
         this.buffer = buffer;
-        super.convert(source);
+        super.parse(source);
     }
 
     protected void processExtractedText(String text) {
