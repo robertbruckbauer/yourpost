@@ -18,10 +18,24 @@ public class TextOnlyStringWriterTest {
     }
 
     /**
+     * Basic test for an empty file.
+     */
+    @Test
+    public void testEmpty() throws Exception {
+        String rtf = "/rtf/Empty.rtf";
+        InputStream is = getClass().getResourceAsStream(rtf);
+        assertNotNull(rtf ,is);
+
+        StringBuilder sb = new StringBuilder();
+        writer.write(new RtfStreamSource(is), sb);
+        assertEquals(rtf, "", sb.toString());
+    }
+
+    /**
      * Basic test for a rtf file from Google Docs.
      */
     @Test
-    public void testConvertHelloDocs() throws Exception {
+    public void testHelloDocs() throws Exception {
         String rtf = "/rtf/HelloDocs.rtf";
         InputStream is = getClass().getResourceAsStream(rtf);
         assertNotNull(rtf ,is);
@@ -35,7 +49,7 @@ public class TextOnlyStringWriterTest {
      * Basic test for a rtf file from Microsoft Word.
      */
     @Test
-    public void testConvertHelloWord() throws Exception {
+    public void testHelloWord() throws Exception {
         String rtf = "/rtf/HelloWord.rtf";
         InputStream is = getClass().getResourceAsStream(rtf);
         assertNotNull(rtf ,is);
@@ -49,7 +63,7 @@ public class TextOnlyStringWriterTest {
      * test for a rtf file with headlines 1 to 6.
      */
     @Test
-    public void testConvertAllHeadline() throws Exception {
+    public void testAllHeadline() throws Exception {
         String rtf = "/rtf/AllHeadline.rtf";
         InputStream is = getClass().getResourceAsStream(rtf);
         assertNotNull(rtf, is);
@@ -68,7 +82,7 @@ public class TextOnlyStringWriterTest {
      * test for a rtf file with all german Umlaut.
      */
     @Test
-    public void testConvertAllUmlaut() throws Exception {
+    public void testAllUmlaut() throws Exception {
         String rtf = "/rtf/AllUmlaut.rtf";
         InputStream is = getClass().getResourceAsStream(rtf);
         assertNotNull(rtf ,is);

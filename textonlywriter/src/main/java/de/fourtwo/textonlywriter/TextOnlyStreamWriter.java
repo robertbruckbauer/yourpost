@@ -13,6 +13,7 @@ import java.nio.charset.Charset;
  */
 @Module
 public class TextOnlyStreamWriter extends RtfTextListener {
+
     private Charset charset;
     private OutputStream os;
 

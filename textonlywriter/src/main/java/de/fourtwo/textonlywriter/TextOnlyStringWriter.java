@@ -11,6 +11,7 @@ import java.io.IOException;
  */
 @Module
 public class TextOnlyStringWriter extends RtfTextListener {
+
     private StringBuilder buffer;
 
     public void write(RtfSource source, StringBuilder buffer) throws IOException {

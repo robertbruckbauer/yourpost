@@ -15,6 +15,7 @@ import java.util.Deque;
  * how the extracted text is handled.
  */
 public abstract class RtfTextListener implements RtfListener {
+
     private RtfCommand currentDestination = RtfCommand.rtf;
     private final Deque<RtfCommand> destinationStack = new ArrayDeque<RtfCommand>();
 
